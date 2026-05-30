@@ -71,7 +71,10 @@ int State::evaluate(
 
     // [ Hackathon TODO 1-1 ]
     // if in win state, return max score(you can check base_state.hpp for max score)
-    
+    if (this->game_state == WIN) {
+        return 1000000; // 給一個夭壽大的分數
+    }
+
     auto self_board = this->board.board[this->player];
     auto oppn_board = this->board.board[1 - this->player];
     int self_score = 0, oppn_score = 0;
@@ -83,18 +86,67 @@ int State::evaluate(
         int oppn_kr = -1, oppn_kc = -1;
         // [ Hackathon TODO 1-3 ]
         // get the position for player's king and opponent's king
-
+        // 找國王找國王找國王
+        for(int r = 0; r < BOARD_H; r++) {
+            for(int c = 0; c < BOARD_W; c++) {
+                if(self_board[r][c] == 6) self_kr = r; self_kc = c;
+                if(oppn_board[r][c] == 6) oppn_kr = r; oppn_kc = c;
+            }
+        }
         // [ Hackathon TODO 1-4 ]
         // sum player/opponent pieces' value and add to score
         // if enemy king is still on the board, you should also call king_tropism for your pieces and add the value to score
         // king_tropism is already given above
-
+        
+        // 這邊要加上位置的分數
+        for(int r = 0; r < BOARD_H; r++) {
+            for(int c = 0; c < BOARD_W; c++) {
+                int p_self = self_board[r][c];
+                if(p_self > 0) { // 如果這格不是空的，因為 0 代表空格
+                    self_score += kp_material[p_self]; // 加上這個棋子本身的分數
+                    
+                    // 視角轉換 - 因為目前的 pst 是用白棋在下的視角寫的
+                    // 如果我現在要分析黑棋，當然要翻轉一下棋盤
+                    int pr = (this->player == 0) ? r : (BOARD_H - 1 - r);
+                    self_score += pst[p_self - 1][pr][c]; // 之所以 -1 是為了對齊 0-based
+                    
+                    // 追殺敵方國王，離國王愈近分數會愈高，king_tropism 是計算曼哈頓距離的
+                    if(oppn_kr != -1) {
+                        self_score += king_tropism(p_self, r, c, oppn_kr, oppn_kc);
+                    }
+                }
+                
+                int p_oppn = oppn_board[r][c];
+                if(p_oppn > 0) {
+                    oppn_score += kp_material[p_oppn];
+                    
+                    // 對手的 PST 視角也要轉換
+                    int oppn_pr = (this->player == 1) ? r : (BOARD_H - 1 - r);
+                    oppn_score += pst[p_oppn - 1][oppn_pr][c];
+                    
+                    // 對手追殺你的國王
+                    if(self_kr != -1) {
+                        oppn_score += king_tropism(p_oppn, r, c, self_kr, self_kc);
+                    }
+                }
+            }
+        }
     }else{
         /* === Simple material-only eval === */
 
         // [ Hackathon TODO 1-2 ]
         // Simply add each piece's value to score
 
+        // 如果沒有贏，跑過整個棋盤，把價值加一加之後回傳
+        for(int r = 0; r < BOARD_H; r++) {
+            for(int c = 0; c < BOARD_W; c++) {
+                int p_self = self_board[r][c];
+                if(p_self > 0) self_score += simple_material[p_self];
+                
+                int p_oppn = oppn_board[r][c];
+                if(p_oppn > 0) oppn_score += simple_material[p_oppn];
+            }
+        }
     }
 
     int bonus = 0;
@@ -104,7 +156,16 @@ int State::evaluate(
         // [ Hackathon TODO 1-5 ]
         // you can calculate mobility by legal actions size
         // bonus += 2 * (self_mobility - oppn_mobility);
-
+        int self_mobility = this->legal_actions.size();
+        
+        // 建立一個輪到對手走的虛擬盤面，來計算對手的機動力
+        // 即複製一個棋盤，但回合交給對手
+        State* null_st = static_cast<State*>(this->create_null_state());
+        int oppn_mobility = null_st->legal_actions.size();
+        delete null_st; // 釋放記憶體
+      
+        // 2 是純粹的權重，你希望自己有的選項比對手多   
+        bonus += 2 * (self_mobility - oppn_mobility);
     }
 
     return self_score - oppn_score + bonus;

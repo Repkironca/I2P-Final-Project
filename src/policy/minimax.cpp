@@ -34,6 +34,11 @@ int MiniMax::eval_ctx(
     // [ Hackathon TODO 3-1 ]
     // return the score for a winning terminal state
     // Hint: prefer faster wins by using ply.
+    if(state->game_state == WIN){
+        // 反正就是我希望 ply 深度愈低愈好，如果不要遞迴太久
+        // 回傳極大值，並扣除搜尋深度 ply，確保 AI 選擇最快獲勝的路徑
+        return 1000000 - ply;
+    }
 
     if(state->game_state == DRAW){
         return 0;
@@ -60,20 +65,25 @@ int MiniMax::eval_ctx(
     for(auto& action : state->legal_actions){
         // [ Hackathon TODO 3-2 ]
         // create the child state after applying action
-
+        // 利用目前取出來的合法移動，來產生下一個移動，嗯嗯嗯嗯嗯
+        State* next = state->next_state(action);
         bool same = next->same_player_as_parent();
 
         // [Hackathon TODO 3-3]
         // search the child one level deeper
+        // 呼叫自己，將深度減 1，並將層數加 1，往未來的回合推演
+        int score = eval_ctx(next, depth - 1, history, ply + 1, ctx, p);
 
         // [Hackathon TODO 3-4]
         // convert raw to the current player's perspective.
-
+        // 對手的獲利就是我的損失，所以把對面的 score 乘上 -1，話說我之後想改這個權重
+        if(!same) score = -score;
         delete next;
 
         // [ Hackathon TODO 3-5 ]
         // update best_score if this child is better.
-
+        // 如果有更好的走法，當然就用更好的走法啊
+        if(score > best_score) best_score = score;
     }
 
     history.pop(state->hash());
