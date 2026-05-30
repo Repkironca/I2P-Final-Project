@@ -14,7 +14,9 @@ int MiniMax::eval_ctx(
     GameHistory& history,
     int ply,
     SearchContext& ctx,
-    const MMParams& p
+    const MMParams& p,
+    int alpha,
+    int beta
 ){
     ctx.nodes++;
     if(ply > ctx.seldepth){
@@ -44,6 +46,11 @@ int MiniMax::eval_ctx(
         return 0;
     }
 
+    // 逼和，它讓你沒有合法步可以走
+    if(state->legal_actions.empty()){
+        return 0; 
+    }
+
     /* === Repetition check (game-specific) === */
     int rep_score;
     if(state->check_repetition(history, rep_score)){
@@ -60,30 +67,34 @@ int MiniMax::eval_ctx(
     }
 
     /* === Negamax loop === */
-    int best_score = M_MAX;
-
+    // with alpha-beta
+    int best_score = -10000000;
     for(auto& action : state->legal_actions){
-        // [ Hackathon TODO 3-2 ]
-        // create the child state after applying action
-        // 利用目前取出來的合法移動，來產生下一個移動，嗯嗯嗯嗯嗯
         State* next = state->next_state(action);
         bool same = next->same_player_as_parent();
-
-        // [Hackathon TODO 3-3]
-        // search the child one level deeper
-        // 呼叫自己，將深度減 1，並將層數加 1，往未來的回合推演
-        int score = eval_ctx(next, depth - 1, history, ply + 1, ctx, p);
-
-        // [Hackathon TODO 3-4]
-        // convert raw to the current player's perspective.
-        // 對手的獲利就是我的損失，所以把對面的 score 乘上 -1，話說我之後想改這個權重
-        if(!same) score = -score;
+        
+        int score;
+        if(!same) {
+            // 換對手下：分數翻轉，且邊界也要翻轉 (-beta 變成新的 alpha, -alpha 變成新的 beta)
+            score = -eval_ctx(next, depth - 1, history, ply + 1, ctx, p, -beta, -alpha);
+        } else {
+            // 同一個人下
+            score = eval_ctx(next, depth - 1, history, ply + 1, ctx, p, alpha, beta);
+        }
         delete next;
 
-        // [ Hackathon TODO 3-5 ]
-        // update best_score if this child is better.
-        // 如果有更好的走法，當然就用更好的走法啊
-        if(score > best_score) best_score = score;
+        if(score > best_score){
+            best_score = score;
+        }
+
+        // Alpha-Beta 剪枝
+        if(best_score > alpha){
+            alpha = best_score;
+        }
+        // 如果保底分數已經大於等於對手的容忍上限，代表這條路對手絕對不會走，後面的合法步都不用看了
+        if(alpha >= beta){
+            break; 
+        }
     }
 
     history.pop(state->hash());
@@ -112,29 +123,51 @@ SearchResult MiniMax::search(
     }
 
 
-    int best_score = M_MAX - 10;
+    int best_score = -10000000;
+    int alpha = -10000000;
+    int beta = 10000000;
     int move_index = 0;
     int total_moves = (int)state->legal_actions.size();
+
+    // 防呆：就算後面找不到更好的步，至少預設第一步合法步，不要回傳空值否則會被判負
+    if (!state->legal_actions.empty()) {
+        result.best_move = state->legal_actions[0];
+    }
 
     for(auto& action : state->legal_actions){
         /* [ Hackathon TODO 4-1 ]
          * search this move like TODO 3, but starting from the root */
+            State* next = state->next_state(action); // 偷到下一步的走法
+            bool same = next->same_player_as_parent();
+            int score; // 來推演未來的分數，深度減 1，ply 設為 1
+            if(!same) {
+                score = -eval_ctx(next, depth - 1, history, 1, ctx, p, -beta, -alpha); 
+            } else {
+                score = eval_ctx(next, depth - 1, history, 1, ctx, p, alpha, beta); 
+            }
+            delete next;
 
             if(score > best_score){
                 // [ Hackathon TODO 4-2 ]
                 // keep this move if it is the best so far
-
+                best_score = score;
+                result.best_move = action; // 記下這一步行動，因為這一部更頂
                 if(p.report_partial && ctx.on_root_update){
                    ctx.on_root_update({result.best_move, best_score, depth, move_index + 1, total_moves});
                 }
-            }  
+            }
+
+            if(best_score > alpha) alpha = best_score;
+             
         move_index++;
     }
 
     // [ Hackathon TODO 4-3 ]
     // update result and return
-
-        return result;
+      result.score = best_score; // 最終最高分
+      result.nodes = ctx.nodes;  // 總共拜訪了多少個節點
+      result.pv = {result.best_move}; // 最佳路徑 (Principal Variation，這裡放起手步)
+      return result;
 } 
 
 

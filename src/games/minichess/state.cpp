@@ -89,8 +89,8 @@ int State::evaluate(
         // 找國王找國王找國王
         for(int r = 0; r < BOARD_H; r++) {
             for(int c = 0; c < BOARD_W; c++) {
-                if(self_board[r][c] == 6) self_kr = r; self_kc = c;
-                if(oppn_board[r][c] == 6) oppn_kr = r; oppn_kc = c;
+                if(self_board[r][c] == 6) { self_kr = r; self_kc = c; }
+                if(oppn_board[r][c] == 6) { oppn_kr = r; oppn_kc = c; }
             }
         }
         // [ Hackathon TODO 1-4 ]
@@ -154,18 +154,10 @@ int State::evaluate(
     /* === Mobility bonus === */
     if(use_mobility){
         // [ Hackathon TODO 1-5 ]
-        // you can calculate mobility by legal actions size
-        // bonus += 2 * (self_mobility - oppn_mobility);
+        // 為了避免在深層樹狀搜尋時瘋狂 new/delete 導致逾時被判負，
+        // 我們直接拿現成的 legal_actions 大小來當作機動力加分即可。
         int self_mobility = this->legal_actions.size();
-        
-        // 建立一個輪到對手走的虛擬盤面，來計算對手的機動力
-        // 即複製一個棋盤，但回合交給對手
-        State* null_st = static_cast<State*>(this->create_null_state());
-        int oppn_mobility = null_st->legal_actions.size();
-        delete null_st; // 釋放記憶體
-      
-        // 2 是純粹的權重，你希望自己有的選項比對手多   
-        bonus += 2 * (self_mobility - oppn_mobility);
+        bonus += 2 * self_mobility;
     }
 
     return self_score - oppn_score + bonus;
@@ -231,6 +223,7 @@ State* State::next_state(const Move& move){
 
     Board next = this->board;
     Point from = move.first, to = move.second;
+
     int p = this->player;
     int opp = 1 - p;
 
