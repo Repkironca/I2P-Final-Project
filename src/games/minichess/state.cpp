@@ -225,10 +225,6 @@ State* State::next_state(const Move& move){
     Board next = this->board;
     Point from = move.first, to = move.second;
 
-    // 這是 G++16 壞掉的原因之一
-    // ★ 解碼 GUI 傳來的升變座標 (例如 6 或 11)，強行壓回 0~5 的合法範圍，防止記憶體越界崩潰！
-    to.first = to.first % BOARD_H;
-
     int p = this->player;
     int opp = 1 - p;
 
@@ -659,11 +655,6 @@ void State::get_legal_actions_bitboard(){
 
             int tr = BB_ROW(to);
             int tc = BB_COL(to);
-            
-            // ★ 如果是兵 (piece == 1) 走到底線，把 y 座標加上 BOARD_H，讓 GUI 知道這步要升變
-            if (piece == 1 && (tr == 0 || tr == BOARD_H - 1)) {
-                tr += BOARD_H * 1; // 1 代表升變為 Queen
-            }
 
             this->legal_actions.push_back(
                 Move(Point(r, c), Point(tr, tc)));

@@ -15,6 +15,7 @@
 #include "game_history.hpp"
 #include "minimax.hpp"
 #include "random.hpp"
+#include "duckyQuack_v0.hpp"
 
 struct AlgoEntry {
     std::string name;
@@ -39,6 +40,14 @@ inline const std::vector<AlgoEntry>& get_algo_table(){
             Random::param_defs(),
             [](State* s, int d, GameHistory& h, SearchContext& c){
                 return Random::search(s, d, h, c);
+            }
+        },
+        {
+            "duckyQuack_v0", 
+            DuckyQuackV0::Policy::default_params(),
+            DuckyQuackV0::Policy::param_defs(),
+            [](State* s, int d, GameHistory& h, SearchContext& c){
+                return DuckyQuackV0::Policy::search(s, d, h, c);
             }
         },
     };

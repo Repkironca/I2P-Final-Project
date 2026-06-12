@@ -1,38 +1,27 @@
 CXX = g++
-CXXFLAGS = --std=c++2a -Wall -Wextra -Wpedantic -g -O3
+CXXFLAGS = --std=c++2a -Wall -Wextra -Wpedantic -g -O3 -Isrc/games/minichess -Isrc/state -Isrc
 
-SOURCES_DIR = src
-UNITTEST_DIR = unittest
-BUILD_DIR = build
+# 自動抓取 policy 下所有的 .cpp，這樣鴨子就會被包進去
+POLICY_SRCS = $(wildcard src/policy/*.cpp)
 
-STATE_SOURCE = $(SOURCES_DIR)/games/minichess/state.cpp
-POLICY_SRC = $(wildcard $(SOURCES_DIR)/policy/*.cpp)
-UNITTESTS = $(wildcard $(UNITTEST_DIR)/*.cpp)
-TARGET_UNITTEST = $(UNITTESTS:$(UNITTEST_DIR)/%_test.cpp=%)
+GAME_SRCS = src/games/minichess/state.cpp
+UBGI_SRCS = src/ubgi/ubgi.cpp
+BENCH_SRCS = src/benchmark.cpp
+TEST_SRCS = unittest/state_test.cpp
 
-MINICHESS_INC = -Isrc/games/minichess -Isrc/state -Isrc
+all: minichess benchmark state_test
 
-.PHONY: all clean minichess benchmark test
+minichess:
+	$(CXX) $(CXXFLAGS) -o build/minichess-ubgi $(GAME_SRCS) $(POLICY_SRCS) $(UBGI_SRCS)
 
-all: minichess benchmark test
+benchmark:
+	$(CXX) $(CXXFLAGS) -o build/minichess-benchmark $(GAME_SRCS) $(POLICY_SRCS) $(BENCH_SRCS)
 
-$(BUILD_DIR):
-	mkdir -p $(BUILD_DIR)
+state_test:
+	$(CXX) $(CXXFLAGS) -o unittest/build/state_test $(GAME_SRCS) $(POLICY_SRCS) $(TEST_SRCS)
 
-$(UNITTEST_DIR)/build:
-	mkdir -p $(UNITTEST_DIR)/build
-
-minichess: | $(BUILD_DIR)
-	$(CXX) $(CXXFLAGS) $(MINICHESS_INC) -o $(BUILD_DIR)/minichess-ubgi $(STATE_SOURCE) $(POLICY_SRC) src/ubgi/ubgi.cpp
-
-benchmark: | $(BUILD_DIR)
-	$(CXX) $(CXXFLAGS) $(MINICHESS_INC) -o $(BUILD_DIR)/minichess-benchmark $(STATE_SOURCE) $(POLICY_SRC) src/benchmark.cpp
-
-test: $(TARGET_UNITTEST)
-
-$(TARGET_UNITTEST): %: $(UNITTEST_DIR)/%_test.cpp | $(UNITTEST_DIR)/build
-	$(CXX) $(CXXFLAGS) $(MINICHESS_INC) -o $(UNITTEST_DIR)/build/$@_test $(STATE_SOURCE) $(POLICY_SRC) $<
-
+# Windows 安全版 clean：只刪除自己編譯出來的目標檔案，不動 TA 的 baseline
 clean:
-	rm -f $(BUILD_DIR)/minichess-ubgi $(BUILD_DIR)/minichess-benchmark
-	rm -f $(UNITTEST_DIR)/build/*_test
+	-del /Q /F build\minichess-ubgi.exe 2>nul
+	-del /Q /F build\minichess-benchmark.exe 2>nul
+	-del /Q /F unittest\build\state_test.exe 2>nul
