@@ -1,9 +1,9 @@
 #include <utility>
 #include <chrono>
 #include "state.hpp"
-#include "duckyQuack_v0.hpp"
+#include "duckyQuack_v1.hpp"
 
-namespace DuckyQuackV0 {
+namespace DuckyQuackV1 {
 
 // *=============================================*
 // Transposition Table
@@ -83,8 +83,9 @@ int Policy::eval_ctx(
     if(state->check_repetition(history, rep_score)) return rep_score;
     history.push(state->hash());
 
+    // 停下來了，那就換 QS - Search 接手
     if(depth <= 0){
-        int score = state->evaluate(p.use_kp_eval, p.use_eval_mobility, &history); 
+        int score = q_search(state, history, ply, ctx, p, start_time, alpha, beta);
         history.pop(state->hash());
         return score;
     }
@@ -125,6 +126,55 @@ int Policy::eval_ctx(
 
     history.pop(state->hash());
     return best_score;
+}
+
+int Policy::q_search(
+    State *state, GameHistory& history, int ply,
+    SearchContext& ctx, const MMParams& p, 
+    std::chrono::time_point<std::chrono::high_resolution_clock> start_time,
+    int alpha, int beta
+){
+    // 1. 基本防禦與中斷檢查
+    ctx.nodes++;
+    if ((ctx.nodes & 2047) == 0) {
+        auto now = std::chrono::high_resolution_clock::now();
+        auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(now - start_time).count();
+        if (elapsed > 9900) ctx.stop = true;
+    }
+    if(ctx.stop) return 0;
+    if(ply > ctx.seldepth) ctx.seldepth = ply; // seldepth 用來記錄 QS 鑽到了多深
+
+    if(state->legal_actions.empty() && state->game_state == UNKNOWN) state->get_legal_actions();
+    if(state->game_state == WIN) return 1000000 - ply;
+    if(state->game_state == DRAW) return 0;
+
+    // 我們有權利＂選擇不吃子＂。如果當前盤面的靜態分數就已經夠高了，
+    // 我們不一定要為了吃子而去冒險，當我模擬到這裡時，我也能選擇不動
+    int stand_pat = state->evaluate(p.use_kp_eval, p.use_eval_mobility, &history);
+    
+    // 想太美了，stand_pat 大於 Beta，根本不會發生，可以剪了
+    if(stand_pat >= beta) return beta;
+
+    if(alpha < stand_pat) alpha = stand_pat;
+
+    int opp = 1 - state->player;
+    // 延長賽：遞迴到底了，但我們把吃子看完
+    for(auto& action : state->legal_actions){
+        int tr = action.second.first % BOARD_H;
+        int tc = action.second.second;
+        
+        // 判斷這步棋是不是吃子
+        bool is_capture = (state->board.board[opp][tr][tc] != 0);
+        if(!is_capture) continue;
+
+        State* next = state->next_state(action);
+        
+        int score = -q_search(next, history, ply + 1, ctx, p, start_time, -beta, -alpha);
+        delete next;
+        if(score >= beta) return beta; // 比 beta 好就剪了吧
+        if(score > alpha) alpha = score;
+    }
+    return alpha;
 }
 
 SearchResult Policy::search(
@@ -194,4 +244,4 @@ std::vector<ParamDef> Policy::param_defs(){
     };
 }
 
-} // for namespace DuckyQuackV0
+} // for namespace DuckyQuackV1

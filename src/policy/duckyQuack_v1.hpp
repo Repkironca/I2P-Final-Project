@@ -4,7 +4,7 @@
 #include <chrono>
 
 // 用 DuckyQuackV0 命名空間包起來，避免跟其他版本的 AI 撞名
-namespace DuckyQuackV0 { 
+namespace DuckyQuackV1 { 
 
 struct MMParams {
     bool use_kp_eval = true;
@@ -30,6 +30,15 @@ public:
     static SearchResult search(
         State *state, int depth, GameHistory& history, SearchContext& ctx
     );
+
+    // QS - Search
+    static int q_search(
+        State *state, GameHistory& history, int ply, SearchContext& ctx,
+        const MMParams& p, 
+        std::chrono::time_point<std::chrono::high_resolution_clock> start_time,
+        int alpha, int beta
+    );
+
     static ParamMap default_params();
     static std::vector<ParamDef> param_defs();
 };
