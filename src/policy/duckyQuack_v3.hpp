@@ -1,0 +1,43 @@
+#pragma once
+#include "search_types.hpp"
+#include "game_history.hpp"
+#include <chrono>
+
+// 用 DuckyQuackV3 命名空間包起來，避免跟其他版本的 AI 撞名
+namespace DuckyQuackV3 { 
+
+struct MMParams {
+    bool use_kp_eval = true;
+    bool use_eval_mobility = true;
+    bool report_partial = true;
+
+    static MMParams from_map(const ParamMap& m){
+        MMParams p;
+        p.use_kp_eval       = param_bool(m, "UseKPEval", true);
+        p.use_eval_mobility = param_bool(m, "UseEvalMobility", true);
+        p.report_partial    = param_bool(m, "ReportPartial", true);
+        return p;
+    }
+};
+
+class Policy {
+public:
+    static int eval_ctx(
+        State *state, int depth, GameHistory& history, int ply, SearchContext& ctx,
+        const MMParams& p, int alpha = -10000000, int beta = 10000000
+    );
+    static SearchResult search(
+        State *state, int depth, GameHistory& history, SearchContext& ctx
+    );
+
+    // QS - Search
+    static int q_search(
+        State *state, GameHistory& history, int ply, SearchContext& ctx,
+        const MMParams& p, int alpha, int beta
+    );
+
+    static ParamMap default_params();
+    static std::vector<ParamDef> param_defs();
+};
+
+} // namespace
