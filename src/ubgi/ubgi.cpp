@@ -311,6 +311,23 @@ static void do_search(
     uint64_t total_nodes = 0;
 
     auto search_start = std::chrono::high_resolution_clock::now();
+    // 背景計時執行緒。時間一到，直接從外部強制拔插頭
+    std::thread timer_thread;
+    if (movetime_ms > 0) {
+        timer_thread = std::thread([&]() {
+            auto t_start = std::chrono::high_resolution_clock::now();
+            while (g_searching && my_gen == g_search_gen.load()) {
+                auto t_now = std::chrono::high_resolution_clock::now();
+                auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(t_now - t_start).count();
+                if (elapsed >= movetime_ms - 50) { // 預留 50ms 收尾緩衝
+                    g_ctx.stop = true;
+                    ctx.stop = true;
+                    break;
+                }
+                std::this_thread::sleep_for(std::chrono::milliseconds(5));
+            }
+        });
+    }
 
     /* === Root move partial-result callback === */
     ctx.on_root_update = [&](const RootUpdate& upd){
@@ -463,11 +480,16 @@ static void do_search(
         }
     }
 
-    if(alive()){
+    if(!g_bestmove_sent){
         send("bestmove " + move_to_str(best_move));
         g_bestmove_sent = true;
     }
     g_searching = false;
+
+    // 等待計時器安全結束
+    if (timer_thread.joinable()) {
+        timer_thread.join();
+    }
 }
 
 

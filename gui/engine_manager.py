@@ -329,14 +329,15 @@ class EngineManagerMixin:
             uci.set_position()
 
         max_depth = side["depth"]
+        movetime_ms = int(self.time_limit * 1000) # 這個往上移
         if max_depth > 0:
             uci.go(
                 depth=max_depth,
+                movetime=movetime_ms,  # 新增這行，強制傳送 2000ms
                 info_callback=self._on_uci_info,
                 done_callback=self._on_uci_bestmove,
             )
         else:
-            movetime_ms = int(self.time_limit * 1000)
             uci.go(
                 movetime=movetime_ms,
                 info_callback=self._on_uci_info,
