@@ -8,6 +8,8 @@
 #include <chrono>
 #include <algorithm>
 #include <cstdlib>
+#include <ctime>
+#include <unistd.h>
 
 #include "ubgi.hpp"
 #include "config.hpp"
@@ -696,6 +698,7 @@ void loop(){
 /* === Entry Point === */
 
 int main(){
+    std::srand(std::time(nullptr) ^ getpid());
     ubgi::loop();
     return 0;
 }

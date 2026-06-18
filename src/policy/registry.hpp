@@ -20,6 +20,7 @@
 #include "duckyQuack_v2.hpp"
 #include "duckyQuack_v3.hpp"
 #include "duckyQuack_v4.hpp"
+#include "duckyQuack_v5.hpp"
 
 struct AlgoEntry {
     std::string name;
@@ -84,6 +85,14 @@ inline const std::vector<AlgoEntry>& get_algo_table(){
             DuckyQuackV4::Policy::param_defs(),
             [](State* s, int d, GameHistory& h, SearchContext& c){
                 return DuckyQuackV4::Policy::search(s, d, h, c);
+            }
+        },
+        {
+            "duckyQuack_v5", 
+            DuckyQuackV5::Policy::default_params(),
+            DuckyQuackV5::Policy::param_defs(),
+            [](State* s, int d, GameHistory& h, SearchContext& c){
+                return DuckyQuackV5::Policy::search(s, d, h, c);
             }
         },
     };
