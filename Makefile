@@ -1,8 +1,13 @@
 CXX = g++
 CXXFLAGS = --std=c++2a -Wall -Wextra -Wpedantic -g -O3 -Isrc/games/minichess -Isrc/state -Isrc
 
-# 自動抓取 policy 下所有的 .cpp，這樣鴨子就會被包進去
-POLICY_SRCS = $(wildcard src/policy/*.cpp)
+# POLICY_SRCS = $(wildcard src/policy/*.cpp)
+
+POLICY_SRCS = \
+	src/policy/duckyQuack_v5.cpp \
+	src/policy/duckyQuack_v6.cpp \
+	src/policy/minimax.cpp \
+	src/policy/random.cpp
 
 GAME_SRCS = src/games/minichess/state.cpp
 UBGI_SRCS = src/ubgi/ubgi.cpp

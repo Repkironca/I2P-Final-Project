@@ -12,7 +12,7 @@ EXT = ".exe" if IS_WINDOWS else ""
 
 # 定義高強度引擎與其路徑 (自動根據 OS 加上 .exe)
 ENGINES = {
-    "v5": {"path": f"build/minichess-ubgi{EXT}", "algo": "duckyQuack_v5"}, 
+    "v5": {"path": f"build/minichess-ubgi{EXT}", "algo": "duckyQuack_v6"}, 
     "Lucifer": {"path": f"build/Lucifer{EXT}", "algo": "minimax"},
     "BOSS": {"path": f"build/boss-ubgi{EXT}", "algo": "minimax"}
 }
@@ -22,16 +22,18 @@ MATCHUPS = [
     ("BOSS", "BOSS"),
     ("Lucifer", "BOSS"),
     ("BOSS", "Lucifer"),
+    ("Lucifer", "Lucifer"),
     ("v5", "BOSS"),
     ("BOSS", "v5"),
     ("v5", "Lucifer"),
-    ("Lucifer", "v5")
+    ("Lucifer", "v5"),
+    ("v5", "v5"),
 ]
 
 DATA_FILE = "dataset_hq.csv"
 DEPTHS = [8, 9, 0] # 0 代表 movetime 2000
 MAX_MOVES = 100 
-GAMES_PER_MATCHUP = 500 # 每個組合各跑 500 盤，總計 3500 盤
+GAMES_PER_MATCHUP = 500 # 每個組合各跑 500 盤，總計 4000 盤
 
 class Engine:
     """封裝與 AI 執行檔的溝通管道"""

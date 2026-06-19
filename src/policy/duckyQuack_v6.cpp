@@ -1,8 +1,8 @@
 #include <utility>
 #include "state.hpp"
-#include "duckyQuack_v5.hpp"
+#include "duckyQuack_v6.hpp"
 
-namespace DuckyQuackV5 {
+namespace DuckyQuackV6 {
 
 // *=============================================*
 // State，嗯笑死我沒有要用你寫的唷，而且我還塞在同一份檔案
@@ -35,40 +35,21 @@ static int custom_evaluate(State* state) {
                 score += sign * piece_values[piece];
 
                 if (piece != 6) {
-                    // 2. 棋盤 PST 權重 (黑棋視角反轉，5 - r)
+                    // 2. 棋盤 PST 權重 (黑棋視角反轉，把 r 變成 5 - r)
                     int pst_idx = (p == 0) ? (r * 5 + c) : ((5 - r) * 5 + c);
                     score += sign * pst[pst_idx];
 
                     // 3. 漢密頓距離
                     if (K_r[opp] != -1) {
                         int dist = std::abs(r - K_r[opp]) + std::abs(c - K_c[opp]);
-                        // 如果要順從 ML 的「正數(遠離國王)」，這裡照乘即可。
-                        // 如果是要讓他更傾向攻擊，要把 dist 改成 sign * (10 - dist) * ...
-                        score += sign * (dist * dist_weights[piece - 1]);
+                        score += sign * (dist * dist_weights[piece]);
                     }
                 }
 
-                // 4. 小兵推進與通路兵
+                // 4. 小兵推進進度
                 if (piece == 1) {
                     int push_dist = (p == 0) ? r : (5 - r);
                     score += sign * (push_dist * PAWN_PUSH_WEIGHT);
-                    
-                    bool is_passed = true;
-                    int start_r = (p == 0) ? r + 1 : 0;
-                    int end_r   = (p == 0) ? BOARD_H : r;
-                    
-                    for (int tc = c - 1; tc <= c + 1; ++tc) {
-                        if (tc >= 0 && tc < BOARD_W) {
-                            for (int tr = start_r; tr < end_r; ++tr) {
-                                if (state->board.board[opp][tr][tc] == 1) {
-                                    is_passed = false;
-                                    break;
-                                }
-                            }
-                        }
-                        if (!is_passed) break;
-                    }
-                    if (is_passed) score += sign * PASSED_PAWN_WEIGHT;
                 }
             }
         }
@@ -119,6 +100,12 @@ static int score_move(State* state, const Move& move, const Move& tt_move, int p
     // 吃子步：價值 = 基礎高分 + (受害者價值*10) - 攻擊者價值，因為我要盡可能殺人
     if (victim != 0) {
         return 1000000 + (piece_values[victim] * 10) - piece_values[attacker];
+    }
+
+    // 升變：哥們多一隻皇后你要不要，反正我要
+    if(attacker == 1){
+        bool promotes = (state->player == 0 && tr == 0) || (state->player == 1 && tr == BOARD_H-1);
+        if(promotes) return 80000;
     }
 
     // 非吃子步
@@ -349,8 +336,8 @@ SearchResult Policy::search(
     }
 
     if(!state->legal_actions.size()) state->get_legal_actions();
+    if(state->legal_actions.empty()) return result; // 防呆機制
 
-    int best_score = -10000000;
     int alpha = -10000000;
     int beta = 10000000;
     int move_index = 0;
@@ -365,48 +352,60 @@ SearchResult Policy::search(
 
     std::sort(state->legal_actions.begin(), state->legal_actions.end(),
         [&](const Move& a, const Move& b) {
-            // 這裡是 root，所以 killer 的 ply = 0
             return score_move(state, a, tt_move, 0) > score_move(state, b, tt_move, 0);
         }
     );
 
-    if (!state->legal_actions.empty()) {
-        result.best_move = state->legal_actions[0];
-    }
+    // 用區域變數暫存，不要提早寫入 result，會出事
+    Move current_best_move = state->legal_actions[0];
+    int current_best_score = -10000000;
 
-    bool is_first_move = true; // 用來標記是否為第一步 - PVS
+    bool is_first_move = true; 
     for(auto& action : state->legal_actions){
-        if (ctx.stop) break;
+        if (ctx.stop) break; // 時間到，立刻打斷迴圈！
+        
         State* next = state->next_state(action); 
         int score; 
         
-        if (is_first_move) { // PVS - 第一步用全視窗
+        if (is_first_move) { 
             score = -eval_ctx(next, depth - 1, history, 1, ctx, p, -beta, -alpha);
             is_first_move = false;
-        } else { // PVS - 後續看一步就好
+        } else { 
             score = -eval_ctx(next, depth - 1, history, 1, ctx, p, -alpha - 1, -alpha); 
             if (score > alpha && score < beta) {
               score = -eval_ctx(next, depth - 1, history, 1, ctx, p, -beta, -alpha);
             }
-          }
+        }
         delete next;
 
-        if(score > best_score){
-            best_score = score;
-            result.best_move = action; 
+        if(score > current_best_score){
+            current_best_score = score;
+            current_best_move = action; 
+            
+            // 報告給 GUI 看的，不影響實質 result
             if(p.report_partial && ctx.on_root_update){
-               ctx.on_root_update({result.best_move, best_score, depth, move_index + 1, total_moves});
+               ctx.on_root_update({current_best_move, current_best_score, depth, move_index + 1, total_moves});
             }
         }
-        if(best_score > alpha) alpha = best_score;
+        if(current_best_score > alpha) alpha = current_best_score;
         move_index++;
     }
 
-    result.score = best_score; 
-    result.nodes = ctx.nodes;  
-    result.pv = {result.best_move}; 
+    // 確保這層是「完整算完」的，才核准寫入 result
+    if (!ctx.stop) {
+        result.score = current_best_score; 
+        result.best_move = current_best_move;
+        result.nodes = ctx.nodes;  
+        result.pv = {current_best_move}; 
+    } else {
+        // 如果被打斷了，給出一個極端的無效分數，讓 UBGI 外殼知道這層是廢棄的
+        // UBGI 收到這個爛分數後，就會放棄這一層，直接採用上一層的完美結果
+        result.score = -20000000; 
+        result.nodes = ctx.nodes;
+    }
+
     return result;
-} 
+}
 
 ParamMap Policy::default_params(){
     return {
