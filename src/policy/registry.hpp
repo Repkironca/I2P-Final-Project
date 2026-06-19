@@ -22,9 +22,11 @@
 #include "duckyQuack_v2.hpp"
 #include "duckyQuack_v3.hpp"
 #include "duckyQuack_v4.hpp"
-*/
 #include "duckyQuack_v5.hpp"
 #include "duckyQuack_v6.hpp"
+*/
+#include "duckyQuack_v7.hpp"
+// #include "duckyQuack_v8.hpp"
 
 struct AlgoEntry {
     std::string name;
@@ -92,7 +94,6 @@ inline const std::vector<AlgoEntry>& get_algo_table(){
                 return DuckyQuackV4::Policy::search(s, d, h, c);
             }
         },
-        */
         {
             "duckyQuack_v5", 
             DuckyQuackV5::Policy::default_params(),
@@ -109,6 +110,25 @@ inline const std::vector<AlgoEntry>& get_algo_table(){
                 return DuckyQuackV6::Policy::search(s, d, h, c);
             }
         },
+        */
+        {
+            "duckyQuack_v7", 
+            DuckyQuackV7::Policy::default_params(),
+            DuckyQuackV7::Policy::param_defs(),
+            [](State* s, int d, GameHistory& h, SearchContext& c){
+                return DuckyQuackV7::Policy::search(s, d, h, c);
+            }
+        },
+        /*
+        {
+            "duckyQuack_v8", 
+            DuckyQuackV8::Policy::default_params(),
+            DuckyQuackV8::Policy::param_defs(),
+            [](State* s, int d, GameHistory& h, SearchContext& c){
+                return DuckyQuackV8::Policy::search(s, d, h, c);
+            }
+        },
+        */
     };
     return table;
 }
