@@ -5,6 +5,7 @@ CXXFLAGS = --std=c++2a -Wall -Wextra -Wpedantic -g -O3 -Isrc/games/minichess -Is
 
 POLICY_SRCS = \
 	src/policy/duckyQuack_v7.cpp \
+	src/policy/duckyQuack_v8.cpp \
 	src/policy/minimax.cpp \
 	src/policy/random.cpp
 
